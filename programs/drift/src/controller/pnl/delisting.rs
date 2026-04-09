@@ -2355,7 +2355,6 @@ pub mod delisting_test {
                     &strict_quote_price,
                     MarginRequirementType::Initial,
                     0,
-                    false,
                 )
                 .unwrap();
 
@@ -2434,7 +2433,6 @@ pub mod delisting_test {
                         &strict_quote_price,
                         MarginRequirementType::Initial,
                         0,
-                        false,
                     )
                     .unwrap();
 
@@ -2521,7 +2519,6 @@ pub mod delisting_test {
                         &strict_quote_price,
                         MarginRequirementType::Initial,
                         0,
-                        false,
                     )
                     .unwrap();
 
@@ -2612,7 +2609,6 @@ pub mod delisting_test {
                         &strict_quote_price,
                         MarginRequirementType::Initial,
                         0,
-                        false,
                     )
                     .unwrap();
 

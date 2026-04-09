@@ -35,7 +35,6 @@ test_files=(
   depositIntoSpotMarketVault.ts
   driftClient.ts
   fillSpot.ts
-  highLeverageMode.ts
   ifRebalance.ts
   adminWithdrawFromInsuranceFundVault.ts
   insuranceFundStake.ts
@@ -98,6 +97,7 @@ test_files=(
   userOrderId.ts
   perpMarketConfig.ts
   # whitelist.ts
+  transferFeeAndPnlPool.ts
 )
 
 

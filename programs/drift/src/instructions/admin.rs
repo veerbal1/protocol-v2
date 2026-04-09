@@ -1,3 +1,4 @@
+use crate::controller::spot_balance::execute_transfer_between_pools;
 use crate::{msg, FeatureBitFlags};
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::Token2022;
@@ -40,6 +41,7 @@ use crate::optional_accounts::get_token_mint;
 use crate::state::amm_cache::{AmmCache, CacheInfo, AMM_POSITIONS_CACHE};
 use crate::state::events::{
     CurveRecord, DepositDirection, DepositExplanation, DepositRecord, SpotMarketVaultDepositRecord,
+    TransferFeeAndPnlPoolDirection, TransferFeeAndPnlPoolRecord,
 };
 use crate::state::fulfillment_params::openbook_v2::{
     OpenbookV2Context, OpenbookV2FulfillmentConfig,
@@ -48,7 +50,6 @@ use crate::state::fulfillment_params::phoenix::PhoenixMarketContext;
 use crate::state::fulfillment_params::phoenix::PhoenixV1FulfillmentConfig;
 use crate::state::fulfillment_params::serum::SerumContext;
 use crate::state::fulfillment_params::serum::SerumV3FulfillmentConfig;
-use crate::state::high_leverage_mode_config::HighLeverageModeConfig;
 use crate::state::if_rebalance_config::{IfRebalanceConfig, IfRebalanceConfigParams};
 use crate::state::insurance_fund_stake::InsuranceFundStake;
 use crate::state::insurance_fund_stake::ProtocolIfSharesTransferConfig;
@@ -933,8 +934,6 @@ pub fn handle_initialize_perp_market(
     validate_margin(
         margin_ratio_initial,
         margin_ratio_maintenance,
-        0,
-        0,
         liquidator_fee,
         max_spread,
     )?;
@@ -996,8 +995,7 @@ pub fn handle_initialize_perp_market(
         fuel_boost_taker: 1,
         fuel_boost_maker: 1,
         pool_id: 0,
-        high_leverage_margin_ratio_initial: 0,
-        high_leverage_margin_ratio_maintenance: 0,
+        padding_former_hlm: [0; 4],
         protected_maker_limit_price_divisor: 0,
         protected_maker_dynamic_divisor: 0,
         lp_fee_transfer_scalar: 1,
@@ -2615,8 +2613,6 @@ pub fn handle_update_perp_market_margin_ratio(
     validate_margin(
         margin_ratio_initial,
         margin_ratio_maintenance,
-        perp_market.high_leverage_margin_ratio_initial.cast()?,
-        perp_market.high_leverage_margin_ratio_maintenance.cast()?,
         perp_market.liquidator_fee,
         perp_market.amm.max_spread,
     )?;
@@ -2635,48 +2631,6 @@ pub fn handle_update_perp_market_margin_ratio(
 
     perp_market.margin_ratio_initial = margin_ratio_initial;
     perp_market.margin_ratio_maintenance = margin_ratio_maintenance;
-    Ok(())
-}
-
-#[access_control(
-    perp_market_valid(&ctx.accounts.perp_market)
-)]
-pub fn handle_update_perp_market_high_leverage_margin_ratio(
-    ctx: Context<AdminUpdatePerpMarket>,
-    margin_ratio_initial: u16,
-    margin_ratio_maintenance: u16,
-) -> Result<()> {
-    let perp_market = &mut load_mut!(ctx.accounts.perp_market)?;
-
-    msg!(
-        "updating perp market {} margin ratio",
-        perp_market.market_index
-    );
-
-    validate_margin(
-        perp_market.margin_ratio_initial,
-        perp_market.margin_ratio_maintenance,
-        margin_ratio_initial.cast()?,
-        margin_ratio_maintenance.cast()?,
-        perp_market.liquidator_fee,
-        perp_market.amm.max_spread,
-    )?;
-
-    msg!(
-        "perp_market.high_leverage_margin_ratio_initial: {:?} -> {:?}",
-        perp_market.high_leverage_margin_ratio_initial,
-        margin_ratio_initial
-    );
-
-    msg!(
-        "perp_market.high_leverage_margin_ratio_maintenance: {:?} -> {:?}",
-        perp_market.high_leverage_margin_ratio_maintenance,
-        margin_ratio_maintenance
-    );
-
-    perp_market.high_leverage_margin_ratio_initial = margin_ratio_initial;
-    perp_market.high_leverage_margin_ratio_maintenance = margin_ratio_maintenance;
-
     Ok(())
 }
 
@@ -2832,8 +2786,6 @@ pub fn handle_update_perp_liquidation_fee(
     validate_margin(
         perp_market.margin_ratio_initial,
         perp_market.margin_ratio_maintenance,
-        perp_market.high_leverage_margin_ratio_initial.cast()?,
-        perp_market.high_leverage_margin_ratio_maintenance.cast()?,
         liquidator_fee,
         perp_market.amm.max_spread,
     )?;
@@ -4694,40 +4646,6 @@ pub fn handle_settle_expired_market<'c: 'info, 'info>(
     Ok(())
 }
 
-pub fn handle_initialize_high_leverage_mode_config(
-    ctx: Context<InitializeHighLeverageModeConfig>,
-    max_users: u32,
-) -> Result<()> {
-    let mut config = ctx.accounts.high_leverage_mode_config.load_init()?;
-
-    config.max_users = max_users;
-
-    config.validate()?;
-
-    Ok(())
-}
-
-pub fn handle_update_high_leverage_mode_config(
-    ctx: Context<UpdateHighLeverageModeConfig>,
-    max_users: u32,
-    reduce_only: bool,
-    current_users: Option<u32>,
-) -> Result<()> {
-    let mut config = load_mut!(ctx.accounts.high_leverage_mode_config)?;
-
-    config.max_users = max_users;
-
-    config.reduce_only = reduce_only as u8;
-
-    if let Some(current_users) = current_users {
-        config.current_users = current_users;
-    }
-
-    config.validate()?;
-
-    Ok(())
-}
-
 pub fn handle_initialize_protected_maker_mode_config(
     ctx: Context<InitializeProtectedMakerModeConfig>,
     max_users: u32,
@@ -5241,6 +5159,109 @@ pub fn handle_update_perp_market_config(
     );
 
     perp_market.market_config = market_config;
+
+    Ok(())
+}
+
+#[access_control(
+    perp_market_valid(&ctx.accounts.perp_market_with_fee_pool)
+    perp_market_valid(&ctx.accounts.perp_market_with_pnl_pool)
+)]
+pub fn handle_transfer_fee_and_pnl_pool<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, TransferFeeAndPnlPool<'info>>,
+    amount: u64,
+    direction: TransferFeeAndPnlPoolDirection,
+) -> Result<()> {
+    let clock = Clock::get()?;
+    let now = clock.unix_timestamp;
+    let slot = clock.slot;
+
+    let spot_market = &mut load_mut!(ctx.accounts.spot_market)?;
+
+    controller::spot_balance::update_spot_market_cumulative_interest(spot_market, None, now)?;
+
+    let same_market = ctx.accounts.perp_market_with_fee_pool.key()
+        == ctx.accounts.perp_market_with_pnl_pool.key();
+
+    if same_market {
+        let mut perp_market = load_mut!(ctx.accounts.perp_market_with_fee_pool)?;
+
+        let fee_pool = &mut perp_market.amm.fee_pool as *mut PoolBalance;
+        let pnl_pool = &mut perp_market.pnl_pool as *mut PoolBalance;
+
+        execute_transfer_between_pools(
+            amount,
+            spot_market,
+            unsafe { &mut *fee_pool },
+            unsafe { &mut *pnl_pool },
+            perp_market.market_index,
+            perp_market.market_index,
+            direction,
+        )?;
+
+        perp_market.amm.total_fee_minus_distributions = match direction {
+            TransferFeeAndPnlPoolDirection::FeeToPnlPool => perp_market
+                .amm
+                .total_fee_minus_distributions
+                .safe_sub(amount.cast()?)?,
+            TransferFeeAndPnlPoolDirection::PnlToFeePool => perp_market
+                .amm
+                .total_fee_minus_distributions
+                .safe_add(amount.cast()?)?,
+        };
+
+        let transfer_record = TransferFeeAndPnlPoolRecord {
+            ts: now,
+            slot,
+            perp_market_index_with_fee_pool: perp_market.market_index,
+            perp_market_index_with_pnl_pool: perp_market.market_index,
+            direction,
+            amount,
+        };
+
+        emit!(transfer_record);
+    } else {
+        let mut perp_market_with_fee_pool = load_mut!(ctx.accounts.perp_market_with_fee_pool)?;
+        let mut perp_market_with_pnl_pool = load_mut!(ctx.accounts.perp_market_with_pnl_pool)?;
+
+        let fee_pool_market_index = perp_market_with_fee_pool.market_index;
+        let pnl_pool_market_index = perp_market_with_pnl_pool.market_index;
+
+        let fee_pool = &mut perp_market_with_fee_pool.amm.fee_pool;
+        let pnl_pool = &mut perp_market_with_pnl_pool.pnl_pool;
+
+        execute_transfer_between_pools(
+            amount,
+            spot_market,
+            fee_pool,
+            pnl_pool,
+            fee_pool_market_index,
+            pnl_pool_market_index,
+            direction,
+        )?;
+
+        perp_market_with_fee_pool.amm.total_fee_minus_distributions = match direction {
+            TransferFeeAndPnlPoolDirection::FeeToPnlPool => perp_market_with_fee_pool
+                .amm
+                .total_fee_minus_distributions
+                .safe_sub(amount.cast()?)?,
+            TransferFeeAndPnlPoolDirection::PnlToFeePool => perp_market_with_fee_pool
+                .amm
+                .total_fee_minus_distributions
+                .safe_add(amount.cast()?)?,
+        };
+
+        let transfer_record = TransferFeeAndPnlPoolRecord {
+            ts: now,
+            slot,
+            perp_market_index_with_fee_pool: fee_pool_market_index,
+            perp_market_index_with_pnl_pool: pnl_pool_market_index,
+            direction,
+            amount,
+        };
+
+        emit!(transfer_record);
+    }
 
     Ok(())
 }
@@ -6030,42 +6051,6 @@ pub struct InitPythLazerOracle<'info> {
 }
 
 #[derive(Accounts)]
-pub struct InitializeHighLeverageModeConfig<'info> {
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    #[account(
-        init,
-        seeds = [b"high_leverage_mode_config".as_ref()],
-        space = HighLeverageModeConfig::SIZE,
-        bump,
-        payer = admin
-    )]
-    pub high_leverage_mode_config: AccountLoader<'info, HighLeverageModeConfig>,
-    #[account(
-        has_one = admin
-    )]
-    pub state: Box<Account<'info, State>>,
-    pub rent: Sysvar<'info, Rent>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct UpdateHighLeverageModeConfig<'info> {
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"high_leverage_mode_config".as_ref()],
-        bump,
-    )]
-    pub high_leverage_mode_config: AccountLoader<'info, HighLeverageModeConfig>,
-    #[account(
-        has_one = admin
-    )]
-    pub state: Box<Account<'info, State>>,
-}
-
-#[derive(Accounts)]
 pub struct InitializeProtectedMakerModeConfig<'info> {
     #[account(
         mut,
@@ -6185,4 +6170,29 @@ pub struct UpdateDelegateUserGovTokenInsuranceStake<'info> {
         has_one = admin
     )]
     pub state: Box<Account<'info, State>>,
+}
+
+#[derive(Accounts)]
+pub struct TransferFeeAndPnlPool<'info> {
+    #[account(
+        has_one = admin
+    )]
+    pub state: Box<Account<'info, State>>,
+    pub admin: Signer<'info>,
+    #[account(mut)]
+    pub perp_market_with_fee_pool: AccountLoader<'info, PerpMarket>,
+    #[account(mut)]
+    pub perp_market_with_pnl_pool: AccountLoader<'info, PerpMarket>,
+    #[account(
+        mut,
+        seeds = [b"spot_market", 0_u16.to_le_bytes().as_ref()],
+        bump,
+    )]
+    pub spot_market: AccountLoader<'info, SpotMarket>,
+    #[account(
+        mut,
+        seeds = [b"spot_market_vault".as_ref(), 0_u16.to_le_bytes().as_ref()],
+        bump,
+    )]
+    pub spot_market_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 }

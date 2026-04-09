@@ -10,6 +10,7 @@ use math::{bn, constants::*};
 use state::oracle::OracleSource;
 
 use crate::controller::position::PositionDirection;
+use crate::state::events::TransferFeeAndPnlPoolDirection;
 use crate::state::if_rebalance_config::IfRebalanceConfigParams;
 use crate::state::oracle::PrelaunchOracleParams;
 use crate::state::order_params::{ModifyOrderParams, OrderParams};
@@ -21,7 +22,6 @@ use crate::state::spot_market::SpotFulfillmentConfigStatus;
 use crate::state::state::FeeStructure;
 use crate::state::state::*;
 use crate::state::user::MarketType;
-
 pub mod controller;
 pub mod error;
 pub mod ids;
@@ -500,13 +500,6 @@ pub mod drift {
         handle_reclaim_rent(ctx)
     }
 
-    pub fn enable_user_high_leverage_mode<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, EnableUserHighLeverageMode>,
-        sub_account_id: u16,
-    ) -> Result<()> {
-        handle_enable_user_high_leverage_mode(ctx, sub_account_id)
-    }
-
     // Keeper Instructions
 
     pub fn fill_perp_order<'c: 'info, 'info>(
@@ -553,13 +546,6 @@ pub mod drift {
         ctx: Context<'_, '_, 'c, 'info, LogUserBalances<'info>>,
     ) -> Result<()> {
         handle_log_user_balances(ctx)
-    }
-
-    pub fn disable_user_high_leverage_mode<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, DisableUserHighLeverageMode<'info>>,
-        disable_maintenance: bool,
-    ) -> Result<()> {
-        handle_disable_user_high_leverage_mode(ctx, disable_maintenance)
     }
 
     // pub fn update_user_fuel_bonus<'c: 'info, 'info>(
@@ -1221,18 +1207,6 @@ pub mod drift {
         handle_update_perp_market_margin_ratio(ctx, margin_ratio_initial, margin_ratio_maintenance)
     }
 
-    pub fn update_perp_market_high_leverage_margin_ratio(
-        ctx: Context<AdminUpdatePerpMarket>,
-        margin_ratio_initial: u16,
-        margin_ratio_maintenance: u16,
-    ) -> Result<()> {
-        handle_update_perp_market_high_leverage_margin_ratio(
-            ctx,
-            margin_ratio_initial,
-            margin_ratio_maintenance,
-        )
-    }
-
     pub fn update_perp_market_funding_period(
         ctx: Context<AdminUpdatePerpMarket>,
         funding_period: i64,
@@ -1841,22 +1815,6 @@ pub mod drift {
         handle_update_pyth_lazer_oracle(ctx, pyth_message)
     }
 
-    pub fn initialize_high_leverage_mode_config(
-        ctx: Context<InitializeHighLeverageModeConfig>,
-        max_users: u32,
-    ) -> Result<()> {
-        handle_initialize_high_leverage_mode_config(ctx, max_users)
-    }
-
-    pub fn update_high_leverage_mode_config(
-        ctx: Context<UpdateHighLeverageModeConfig>,
-        max_users: u32,
-        reduce_only: bool,
-        current_users: Option<u32>,
-    ) -> Result<()> {
-        handle_update_high_leverage_mode_config(ctx, max_users, reduce_only, current_users)
-    }
-
     pub fn initialize_protected_maker_mode_config(
         ctx: Context<InitializeProtectedMakerModeConfig>,
         max_users: u32,
@@ -2242,6 +2200,14 @@ pub mod drift {
         market_config: u8,
     ) -> Result<()> {
         handle_update_perp_market_config(ctx, market_config)
+    }
+
+    pub fn transfer_fee_and_pnl_pool<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, TransferFeeAndPnlPool<'info>>,
+        amount: u64,
+        direction: TransferFeeAndPnlPoolDirection,
+    ) -> Result<()> {
+        handle_transfer_fee_and_pnl_pool(ctx, amount, direction)
     }
 }
 

@@ -1,5 +1,5 @@
 {
-  "version": "2.161.0",
+  "version": "2.162.0",
   "name": "drift",
   "instructions": [
     {
@@ -1908,37 +1908,6 @@
       "args": []
     },
     {
-      "name": "enableUserHighLeverageMode",
-      "accounts": [
-        {
-          "name": "state",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "user",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "highLeverageModeConfig",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "subAccountId",
-          "type": "u16"
-        }
-      ]
-    },
-    {
       "name": "fillPerpOrder",
       "accounts": [
         {
@@ -2173,37 +2142,6 @@
         }
       ],
       "args": []
-    },
-    {
-      "name": "disableUserHighLeverageMode",
-      "accounts": [
-        {
-          "name": "state",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "user",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "highLeverageModeConfig",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "disableMaintenance",
-          "type": "bool"
-        }
-      ]
     },
     {
       "name": "updateUserStatsReferrerStatus",
@@ -3839,112 +3777,6 @@
       ]
     },
     {
-      "name": "updatePythPullOracle",
-      "accounts": [
-        {
-          "name": "keeper",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "pythSolanaReceiver",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "encodedVaa",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "priceFeed",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "feedId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "params",
-          "type": "bytes"
-        }
-      ]
-    },
-    {
-      "name": "postPythPullOracleUpdateAtomic",
-      "accounts": [
-        {
-          "name": "keeper",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "pythSolanaReceiver",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "guardianSet",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "priceFeed",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "feedId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "params",
-          "type": "bytes"
-        }
-      ]
-    },
-    {
-      "name": "postMultiPythPullOracleUpdatesAtomic",
-      "accounts": [
-        {
-          "name": "keeper",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "pythSolanaReceiver",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "guardianSet",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "params",
-          "type": "bytes"
-        }
-      ]
-    },
-    {
       "name": "pauseSpotMarketDepositWithdraw",
       "accounts": [
         {
@@ -5417,36 +5249,6 @@
         {
           "name": "marginRatioMaintenance",
           "type": "u32"
-        }
-      ]
-    },
-    {
-      "name": "updatePerpMarketHighLeverageMarginRatio",
-      "accounts": [
-        {
-          "name": "admin",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "state",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "perpMarket",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "marginRatioInitial",
-          "type": "u16"
-        },
-        {
-          "name": "marginRatioMaintenance",
-          "type": "u16"
         }
       ]
     },
@@ -7284,47 +7086,6 @@
       ]
     },
     {
-      "name": "initializePythPullOracle",
-      "accounts": [
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "pythSolanaReceiver",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "priceFeed",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "state",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "feedId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
       "name": "initializePythLazerOracle",
       "accounts": [
         {
@@ -7383,78 +7144,6 @@
         {
           "name": "pythMessage",
           "type": "bytes"
-        }
-      ]
-    },
-    {
-      "name": "initializeHighLeverageModeConfig",
-      "accounts": [
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "highLeverageModeConfig",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "state",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "rent",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "maxUsers",
-          "type": "u32"
-        }
-      ]
-    },
-    {
-      "name": "updateHighLeverageModeConfig",
-      "accounts": [
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "highLeverageModeConfig",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "state",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "maxUsers",
-          "type": "u32"
-        },
-        {
-          "name": "reduceOnly",
-          "type": "bool"
-        },
-        {
-          "name": "currentUsers",
-          "type": {
-            "option": "u32"
-          }
         }
       ]
     },
@@ -9404,6 +9093,53 @@
           "type": "u8"
         }
       ]
+    },
+    {
+      "name": "transferFeeAndPnlPool",
+      "accounts": [
+        {
+          "name": "state",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "perpMarketWithFeePool",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "perpMarketWithPnlPool",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "spotMarket",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "spotMarketVault",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "direction",
+          "type": {
+            "defined": "TransferFeeAndPnlPoolDirection"
+          }
+        }
+      ]
     }
   ],
   "accounts": [
@@ -9633,48 +9369,6 @@
               "array": [
                 "u8",
                 4
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "HighLeverageModeConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "maxUsers",
-            "type": "u32"
-          },
-          {
-            "name": "currentUsers",
-            "type": "u32"
-          },
-          {
-            "name": "reduceOnly",
-            "type": "u8"
-          },
-          {
-            "name": "padding1",
-            "type": {
-              "array": [
-                "u8",
-                3
-              ]
-            }
-          },
-          {
-            "name": "currentMaintenanceUsers",
-            "type": "u32"
-          },
-          {
-            "name": "padding2",
-            "type": {
-              "array": [
-                "u8",
-                24
               ]
             }
           }
@@ -10622,12 +10316,16 @@
             "type": "u8"
           },
           {
-            "name": "highLeverageMarginRatioInitial",
-            "type": "u16"
-          },
-          {
-            "name": "highLeverageMarginRatioMaintenance",
-            "type": "u16"
+            "name": "paddingFormerHlm",
+            "docs": [
+              "Deprecated: formerly high_leverage_margin_ratio_initial and high_leverage_margin_ratio_maintenance"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                4
+              ]
+            }
           },
           {
             "name": "protectedMakerLimitPriceDivisor",
@@ -11743,10 +11441,8 @@
             "type": "bool"
           },
           {
-            "name": "marginMode",
-            "type": {
-              "defined": "MarginMode"
-            }
+            "name": "paddingFormerMarginMode",
+            "type": "u8"
           },
           {
             "name": "poolId",
@@ -15590,6 +15286,20 @@
       }
     },
     {
+      "name": "TransferFeeAndPnlPoolDirection",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "FeeToPnlPool"
+          },
+          {
+            "name": "PnlToFeePool"
+          }
+        ]
+      }
+    },
+    {
       "name": "FillMode",
       "type": {
         "kind": "enum",
@@ -15816,9 +15526,6 @@
         "variants": [
           {
             "name": "ImmediateOrCancel"
-          },
-          {
-            "name": "UpdateHighLeverageMode"
           }
         ]
       }
@@ -16441,23 +16148,6 @@
           },
           {
             "name": "BuilderReferral"
-          }
-        ]
-      }
-    },
-    {
-      "name": "MarginMode",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Default"
-          },
-          {
-            "name": "HighLeverage"
-          },
-          {
-            "name": "HighLeverageMaintenance"
           }
         ]
       }
@@ -17749,6 +17439,56 @@
       ]
     },
     {
+      "name": "AdminWithdrawFromInsuranceFundRecord",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "marketIndex",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "admin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sharesBurned",
+          "type": "u128",
+          "index": false
+        },
+        {
+          "name": "insuranceFundVaultAmountBefore",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "protocolSharesBefore",
+          "type": "u128",
+          "index": false
+        },
+        {
+          "name": "protocolSharesAfter",
+          "type": "u128",
+          "index": false
+        },
+        {
+          "name": "recipientTokenAccount",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "SwapRecord",
       "fields": [
         {
@@ -18384,6 +18124,43 @@
         {
           "name": "lpPool",
           "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "TransferFeeAndPnlPoolRecord",
+      "fields": [
+        {
+          "name": "ts",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "slot",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "perpMarketIndexWithFeePool",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "perpMarketIndexWithPnlPool",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "direction",
+          "type": {
+            "defined": "TransferFeeAndPnlPoolDirection"
+          },
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
           "index": false
         }
       ]
@@ -19842,8 +19619,8 @@
     },
     {
       "code": 6290,
-      "name": "InvalidHighLeverageModeConfig",
-      "msg": "Invalid High Leverage Mode Config"
+      "name": "DeprecatedHighLeverageModeConfig",
+      "msg": "Deprecated"
     },
     {
       "code": 6291,
@@ -19962,8 +19739,8 @@
     },
     {
       "code": 6314,
-      "name": "CouldNotDeserializeHighLeverageModeConfig",
-      "msg": "Could not deserialize high leverage mode config"
+      "name": "DeprecatedCouldNotDeserializeHighLeverageModeConfig",
+      "msg": "Deprecated"
     },
     {
       "code": 6315,
@@ -20134,6 +19911,14 @@
       "code": 6348,
       "name": "InvalidPerpMarketConfig",
       "msg": "Invalid perp market config"
+    },
+    {
+      "code": 6349,
+      "name": "InvalidInsuranceFundWithdrawalRecipient",
+      "msg": "Insurance fund withdrawal recipient must be the designated treasury address"
     }
-  ]
+  ],
+  "metadata": {
+    "address": "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH"
+  }
 }
