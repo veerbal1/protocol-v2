@@ -3,7 +3,7 @@
 ## Current Position
 - Ring: 5 of 26
 - Active Concept: 20-24 (PerpPosition struct, base/quote amounts, direction)
-- Status: In Progress (opening move asked)
+- Status: In Progress (signed base + signed quote locked in; fees/break-even pending)
 
 ## Progress Overview
 
@@ -75,6 +75,16 @@
 - Vocabulary introduced at Ring 3 close: `mark_price` (the AMM's quoted price = (y/x) * peg_multiplier), `slippage` (teaser -- own trade moves price; full math Ring 9).
 - Forward refs planted for Rings 9 (price impact), 10 (oracles), 11 (bid/ask spread), 14 (funding rate), 22 (repeg cost/triggers), 24 (where virtual reserves come from / LPs). Don't let these become vapor -- resurface each when its ring opens.
 
+### Ring 5 (in progress)
+- Opening move: "minimum info to compute PnL a week later" -- user initially listed collateral + leverage + entry + direction. Used the PnL arithmetic check ($200 on long 10 SOL, $100->$120) to make them SEE that collateral/leverage didn't appear in the formula. They self-identified entry + direction as the ones they actually used. Worked cleanly.
+- Size was the hidden one -- they implicitly used "× 10" but didn't list "size" originally. Caught it when asked where the 10 came from. Small gap, fast fix.
+- Signed encoding (+10 long, -10 short): derived instantly and unprompted. "+means long, - means short" -- no resistance.
+- Quote-as-notional-not-collateral: user asked the right question ("is quote direct collateral or leverage included amount?") -- that's a real design-level instinct. Framed the $100 vs $1000 scenario; they picked $1000 correctly.
+- Sign of quote: FIRST INSTINCT WRONG -- guessed long=+quote, short=-quote. Before pushing further, user flagged CONFUSION explicitly: "im not seeing full picture... we studying in chunks and a lot of questions. Do you think about this?" -- good self-advocacy. Honor it.
+- RESPONSE: zoomed out and delivered the full two-field layout as a table (base_asset_amount + quote_asset_amount, signed, opposite signs, IN=+ OUT=-). Did NOT force the derivation when they were confused. This user tolerates atomic style well on solid ground (Rings 3-4) but asks for the map when genuinely lost. Track this -- pattern is "atomic until stuck, then give the frame."
+- STYLE CALIBRATION: atomic Socratic works, but not as a religion. When user says "I'm confused / missing context," deliver the frame immediately, then return to atomic. Mid-ring reframes are fine -- they are NOT admissions of failure, they are part of the method for this user.
+- Still pending in Ring 5: (a) confirm the sign-flip intuition is now locked (ask a short verification), (b) introduce quote_entry_amount vs quote_break_even_amount (they differ because of fees; forward ref Ring 7), (c) note that PositionDirection enum exists for ORDER flow but is NOT stored on PerpPosition (the signed base IS the direction storage).
+
 ### Ring 4
 - User entered with working Solana baseline: already knew PDAs, program ownership, lamports-as-SOL-atomic-unit. Did NOT need to teach these -- confirmed and leveraged directly.
 - Derived fixed-point representation unprompted: "multiply by a large scaler, store as big int, divide back on use." One atomic push was enough.
@@ -121,10 +131,17 @@
 - checked_mul / checked_add / checked_sub / checked_div (arithmetic that returns Option<T>; None on overflow)
 - ok_or(ErrorCode::MathError)? (Drift's idiom: convert Option → Result → bubble up)
 - u64 (the 64-bit unsigned integer type; holds up to ~1.8×10^19)
+- position record (the stored data that describes a bet: two signed numbers tracking what flowed between you and the AMM)
+- base_asset_amount (signed i64 on PerpPosition; sign = direction, magnitude = size of exposure in base-asset atomic units; + = received base, − = gave up base)
+- quote_asset_amount (signed i64 on PerpPosition; tracks cash flow through the trade; always OPPOSITE sign to base; stores NOTIONAL not collateral)
+- signed encoding (collapsing "size + direction" into a single signed integer; Drift uses this for every position record)
+- IN/OUT sign convention (from the position's perspective: what you RECEIVED is positive, what you GAVE UP is negative; applies to both base and quote)
 
 ## Next Up
-- Ring 5: what exactly gets stored in a User account when you open a position. Introduce PerpPosition struct: base_asset_amount (signed -- sign encodes direction), quote_asset_amount (signed -- cash flow), quote_entry_amount vs quote_break_even_amount (they differ because of fees -- forward ref to Ring 7), PositionDirection::Long/Short (explicit enum used in order flow, not stored on position).
-- Opening move for Ring 5: "you open a long SOL-PERP position. The protocol must write something to your User account to record this bet. What's the minimum information that needs to be stored to fully describe the position?" Let them enumerate: size, direction, entry price. Then show Drift collapses "size + direction" into one signed field.
-- Key atomic beats planned: (1) derive minimum fields -- size, direction, entry. (2) Drift stores size as SIGNED i64 where sign = direction; derive why one signed field is cleaner than size+bool. (3) entry isn't stored as a "price" -- it's stored as quote_asset_amount (how much cash flowed in to open). Ask why store cash-in instead of price. (4) break_even ≠ entry because of fees -- forward ref Ring 7 for the fee flow.
-- Source file when ready: `programs/drift/src/state/user.rs` (PerpPosition struct). User can read it AFTER they've derived the fields themselves.
-- Forward refs to resurface when their ring opens: Ring 7 (entry vs break-even via fees), Ring 9 (price impact, sqrt_k, open interest), Ring 10 (oracle mechanics), Ring 11 (bid/ask spread), Ring 14 (funding rate, last_cumulative_funding_rate on PerpPosition), Ring 22 (repeg), Ring 24 (LPs / virtual reserve origination).
+- Ring 5 is MID-FLIGHT. Done so far: (1) derived the minimum 3 fields (size, entry, direction) via PnL arithmetic; (2) collapsed size+direction into one signed field (base_asset_amount); (3) established quote_amount stores NOTIONAL not collateral ($1000 vs $100 scenario); (4) delivered the two-field layout as a table after user asked for a zoom-out.
+- IMMEDIATE NEXT BEAT when resuming: verify the sign-flip intuition is locked. Ask a short mirror question -- e.g. "you open SHORT 5 SOL at $200. What do base_asset_amount and quote_asset_amount store?" Correct answers: base = -5, quote = +1000. If they nail it, move on.
+- After that: introduce quote_entry_amount (what quote WAS at open, before fees) vs quote_break_even_amount (the quote level needed to net-zero including fees paid). They start equal; they drift apart as fees accumulate. This is the bridge to Ring 7 (fee flow on fills).
+- Also mention: PositionDirection enum exists in code for ORDER flow (Ring 6), but is NOT stored on PerpPosition -- the signed base IS the direction storage on the position record. Quick callout, not a beat.
+- Source file to reveal AFTER the above: `programs/drift/src/state/user.rs` (PerpPosition struct). User can read the actual fields and match to what they derived.
+- Style note (seared in from this sub-session): atomic Socratic is the default, but this user will explicitly say "I'm confused, missing context" when they need the map. Do NOT resist -- deliver the frame immediately, then return to atomic. This is not failure of the method, it IS the method for them.
+- Forward refs to resurface when their ring opens: Ring 7 (entry vs break-even via fees -- IMMINENT, hit it next ring), Ring 9 (price impact, sqrt_k, open interest), Ring 10 (oracle mechanics), Ring 11 (bid/ask spread), Ring 14 (funding rate, last_cumulative_funding_rate on PerpPosition), Ring 22 (repeg), Ring 24 (LPs / virtual reserve origination).
