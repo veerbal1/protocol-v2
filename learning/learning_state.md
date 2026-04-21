@@ -1,9 +1,25 @@
 # LEARNING STATE
 
 ## Current Position
-- Ring: 5 of 26
-- Active Concept: 20-24 (PerpPosition struct, base/quote amounts, direction)
-- Status: In Progress (signed base + signed quote locked in; fees/break-even pending)
+- Ring: 6 of 26
+- Active Concept: 25-31 (Order struct, order types, lifecycle, reduce-only, post-only, IOC)
+- Status: IN PROGRESS — delivering in 6 chunks. Chunk 1/6 delivered 2026-04-21 (the spine: Order vs PerpPosition sign-encoding split, why direction lives in its own enum on Order). Awaiting "next" for Chunk 2/6 (the 5 OrderType flavors).
+
+## Ring 6 Chunk Plan
+- [x] 1/6 — Spine: Order vs PerpPosition sign encoding split; PositionDirection enum payoff
+- [ ] 2/6 — The 5 OrderType flavors (Market / Limit / TriggerMarket / TriggerLimit / Oracle) with a comparison table and concrete scenarios per flavor
+- [ ] 3/6 — Order struct anatomy + OrderParams (what user sends vs what gets stored); worked example "buy 2 SOL limit at $185"
+- [ ] 4/6 — Lifecycle: OrderStatus (Init → Open → Filled / Canceled); note there is NO Expired terminal state — max_ts triggers cancellation
+- [ ] 5/6 — The three toggles: reduce_only (bool), post_only (FOUR variants — plot twist; None/MustPostOnly/TryPostOnly/Slide), IOC (lives inside bit_flags — not a bool; OrderParamsBitFlag::ImmediateOrCancel = 0b00000001)
+- [ ] 6/6 — Single ring-close scenario check (not a drill)
+
+## ACTIVE STYLE DIRECTIVE (supersedes all prior style notes)
+- Set 2026-04-20 mid-Ring-5. User reported HEADACHES from constant atomic-Socratic questioning ("answering a lot of questions after each interaction").
+- NEW DEFAULT: deliver each ring as a FULL PICTURE upfront — framed, with concrete examples, tables, and a source-file pointer. Cover the whole ring's concept space in one teaching block.
+- Ask at most ONE short check question at the END of the ring, only when needed to confirm a non-obvious piece landed before progressing.
+- DO NOT fire atomic questions mid-ring unless the user explicitly asks to be drilled. Earlier "atomic Socratic default" (Rings 2-4) is SUPERSEDED.
+- CHUNKING RULE (added 2026-04-20, mid-Ring-5 review): for LONG walkthroughs (e.g. full-diagram reviews, multi-concept syntheses), split into numbered chunks (e.g. "1 / 8") and deliver ONE chunk per turn. End each chunk with "say 'next' when ready" — user paces. Do NOT dump 2000+ word explainers in one message even when style is "full picture." Full picture per ring is fine; full picture per SINGLE concept is better for reviews.
+- Still forbidden per CLAUDE.md: writing full implementation code, auto-solving user code, creating files beyond master_map.md / learning_state.md. Pseudocode + tiny syntax snippets still allowed.
 
 ## Progress Overview
 
@@ -16,8 +32,8 @@
 - [x] Ring 4: Solana accounts, four pillars, precision, safe math -- COMPLETED
 
 ### PHASE 3 - THE TRADE
-- [ ] Ring 5: PerpPosition struct, base/quote, direction -- IN PROGRESS
-- [ ] Ring 6: Order struct, types, lifecycle, reduce-only, post-only
+- [x] Ring 5: PerpPosition struct, base/quote, direction -- COMPLETED 2026-04-20
+- [ ] Ring 6: Order struct, types, lifecycle, reduce-only, post-only -- UP NEXT
 - [ ] Ring 7: Dutch auctions, keepers, fill flow, fees-on-fill
 - [ ] Ring 8: Position updates: open/increase/decrease/close
 
@@ -75,7 +91,14 @@
 - Vocabulary introduced at Ring 3 close: `mark_price` (the AMM's quoted price = (y/x) * peg_multiplier), `slippage` (teaser -- own trade moves price; full math Ring 9).
 - Forward refs planted for Rings 9 (price impact), 10 (oracles), 11 (bid/ask spread), 14 (funding rate), 22 (repeg cost/triggers), 24 (where virtual reserves come from / LPs). Don't let these become vapor -- resurface each when its ring opens.
 
-### Ring 5 (in progress)
+### Ring 5 (delivered & closed 2026-04-20)
+- Delivered as full-picture lecture per new style directive (see ACTIVE STYLE DIRECTIVE at top). Single end-of-ring check: "short 5 SOL at $200 → what are base and quote?" User answered instantly: "-5, +1000". Clean close, no wobble.
+- New style (full picture + single check) REPLACES the atomic-Socratic default going forward. User explicitly reported headaches from prior constant questioning — respect the shift.
+- The full-picture delivery included: (a) PnL math showing only entry/size/direction matter, (b) signed encoding trick (base carries size AND direction), (c) quote = cash side with OPPOSITE sign, IN/OUT convention, (d) quote stores NOTIONAL not collateral (collateral lives in SpotPosition, Ring 15), (e) quote_entry_amount vs quote_break_even_amount (equal at open, diverge with fees — forward ref Ring 7), (f) PositionDirection enum exists for Order flow (Ring 6) but NOT on PerpPosition.
+- Source file revealed: `programs/drift/src/state/user.rs` (PerpPosition struct).
+- User's comfort zone with this style: confirmed. Continue pattern for Ring 6+.
+
+### Ring 5 (prior mid-flight attempt — SUPERSEDED by 2026-04-20 fresh delivery; kept below as behavioral/style pattern data only)
 - Opening move: "minimum info to compute PnL a week later" -- user initially listed collateral + leverage + entry + direction. Used the PnL arithmetic check ($200 on long 10 SOL, $100->$120) to make them SEE that collateral/leverage didn't appear in the formula. They self-identified entry + direction as the ones they actually used. Worked cleanly.
 - Size was the hidden one -- they implicitly used "× 10" but didn't list "size" originally. Caught it when asked where the 10 came from. Small gap, fast fix.
 - Signed encoding (+10 long, -10 short): derived instantly and unprompted. "+means long, - means short" -- no resistance.
@@ -131,17 +154,21 @@
 - checked_mul / checked_add / checked_sub / checked_div (arithmetic that returns Option<T>; None on overflow)
 - ok_or(ErrorCode::MathError)? (Drift's idiom: convert Option → Result → bubble up)
 - u64 (the 64-bit unsigned integer type; holds up to ~1.8×10^19)
-- position record (the stored data that describes a bet: two signed numbers tracking what flowed between you and the AMM)
-- base_asset_amount (signed i64 on PerpPosition; sign = direction, magnitude = size of exposure in base-asset atomic units; + = received base, − = gave up base)
-- quote_asset_amount (signed i64 on PerpPosition; tracks cash flow through the trade; always OPPOSITE sign to base; stores NOTIONAL not collateral)
-- signed encoding (collapsing "size + direction" into a single signed integer; Drift uses this for every position record)
-- IN/OUT sign convention (from the position's perspective: what you RECEIVED is positive, what you GAVE UP is negative; applies to both base and quote)
+- position / PerpPosition (the stored record of a bet; lives on the User account)
+- base_asset_amount (signed i64 on PerpPosition; sign = direction, magnitude = size in base-asset atomic units)
+- quote_asset_amount (signed i64 on PerpPosition; the cash side of the swap; always OPPOSITE sign to base; stores NOTIONAL not collateral)
+- signed encoding (collapsing "size + direction" into a single signed integer; Drift uses this across position records)
+- IN/OUT sign convention (from the position's perspective: received = +, gave up = −; applies to both base and quote)
+- notional (size × entry price; what was exchanged in the swap, NOT what was deposited)
+- quote_entry_amount (quote snapshot at open, BEFORE any fees)
+- quote_break_even_amount (the quote level needed to net-zero including fees paid; equals entry at open, drifts as fees accumulate — Ring 7)
+- entry price (derivable: quote_entry_amount / base_asset_amount)
+- break-even price (derivable: quote_break_even_amount / base_asset_amount)
+- PositionDirection enum (Long/Short; used on the Order struct in Ring 6; NOT stored on PerpPosition — sign of base_asset_amount IS the direction there)
 
 ## Next Up
-- Ring 5 is MID-FLIGHT. Done so far: (1) derived the minimum 3 fields (size, entry, direction) via PnL arithmetic; (2) collapsed size+direction into one signed field (base_asset_amount); (3) established quote_amount stores NOTIONAL not collateral ($1000 vs $100 scenario); (4) delivered the two-field layout as a table after user asked for a zoom-out.
-- IMMEDIATE NEXT BEAT when resuming: verify the sign-flip intuition is locked. Ask a short mirror question -- e.g. "you open SHORT 5 SOL at $200. What do base_asset_amount and quote_asset_amount store?" Correct answers: base = -5, quote = +1000. If they nail it, move on.
-- After that: introduce quote_entry_amount (what quote WAS at open, before fees) vs quote_break_even_amount (the quote level needed to net-zero including fees paid). They start equal; they drift apart as fees accumulate. This is the bridge to Ring 7 (fee flow on fills).
-- Also mention: PositionDirection enum exists in code for ORDER flow (Ring 6), but is NOT stored on PerpPosition -- the signed base IS the direction storage on the position record. Quick callout, not a beat.
-- Source file to reveal AFTER the above: `programs/drift/src/state/user.rs` (PerpPosition struct). User can read the actual fields and match to what they derived.
-- Style note (seared in from this sub-session): atomic Socratic is the default, but this user will explicitly say "I'm confused, missing context" when they need the map. Do NOT resist -- deliver the frame immediately, then return to atomic. This is not failure of the method, it IS the method for them.
-- Forward refs to resurface when their ring opens: Ring 7 (entry vs break-even via fees -- IMMINENT, hit it next ring), Ring 9 (price impact, sqrt_k, open interest), Ring 10 (oracle mechanics), Ring 11 (bid/ask spread), Ring 14 (funding rate, last_cumulative_funding_rate on PerpPosition), Ring 22 (repeg), Ring 24 (LPs / virtual reserve origination).
+- Ring 6 — Placing your bet. Concepts 25-31: Order struct, OrderType enum (Market / Limit / TriggerMarket / TriggerLimit / Oracle — the Oracle type sources price from a feed, forward ref Ring 10), OrderParams (what the user submits), Order lifecycle (Open → Filled / Canceled / Expired), reduce-only (can only shrink a position), post-only (must rest as maker — full maker/taker distinction Ring 23), IOC (immediate-or-cancel).
+- Delivery: full-picture per ACTIVE STYLE DIRECTIVE. Frame the motivating problem (you have a position record from Ring 5 — how do you CREATE one?), give a summary table of order types, walk the lifecycle, explain the three toggles (reduce-only / post-only / IOC) concretely, point at source files (`programs/drift/src/state/user.rs` for Order struct, `state/order_params.rs` for OrderParams). End with ONE retention check, not a drill.
+- Vocabulary to unlock during Ring 6: order, limit, market order, trigger, reduce-only, post-only, IOC, OrderType, OrderParams, OrderStatus, maker / taker (teaser — full mechanics Ring 23), Oracle-type order (teaser — price source Ring 10).
+- Forward refs to plant during Ring 6: Ring 7 (Dutch auction gives market orders a price, taker/maker fees on fill), Ring 10 (Oracle order type's price source), Ring 23 (maker/taker matching engine).
+- Forward refs still outstanding from earlier rings: Ring 7 (entry vs break-even via fees — hit it in Ring 7), Ring 9 (price impact, sqrt_k, open interest), Ring 10 (oracle mechanics), Ring 11 (bid/ask spread), Ring 14 (funding rate, last_cumulative_funding_rate on PerpPosition), Ring 22 (repeg), Ring 24 (LPs / virtual reserve origination).
